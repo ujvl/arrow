@@ -15,35 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#[macro_use]
-extern crate criterion;
+#include "arrow/dbi/hiveserver2/types.h"
 
-use criterion::Criterion;
+#include "arrow/dbi/hiveserver2/thrift-internal.h"
 
-extern crate arrow;
+#include "arrow/util/logging.h"
 
-use arrow::array::*;
-use arrow::builder::*;
+namespace arrow {
+namespace hiveserver2 {
 
-fn array_from_builder(n: usize) {
-    let mut v: Builder<i32> = Builder::with_capacity(n);
-    for i in 0..n {
-        v.push(i as i32);
-    }
-    PrimitiveArray::from(v.finish());
+const PrimitiveType* ColumnDesc::GetPrimitiveType() const {
+  return static_cast<PrimitiveType*>(type_.get());
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("array_from_builder 128", |b| {
-        b.iter(|| array_from_builder(128))
-    });
-    c.bench_function("array_from_builder 256", |b| {
-        b.iter(|| array_from_builder(256))
-    });
-    c.bench_function("array_from_builder 512", |b| {
-        b.iter(|| array_from_builder(512))
-    });
+const CharacterType* ColumnDesc::GetCharacterType() const {
+  DCHECK(type_->type_id() == ColumnType::TypeId::CHAR ||
+         type_->type_id() == ColumnType::TypeId::VARCHAR);
+  return static_cast<CharacterType*>(type_.get());
 }
 
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
+const DecimalType* ColumnDesc::GetDecimalType() const {
+  DCHECK(type_->type_id() == ColumnType::TypeId::DECIMAL);
+  return static_cast<DecimalType*>(type_.get());
+}
+
+std::string PrimitiveType::ToString() const { return TypeIdToString(type_id_); }
+
+}  // namespace hiveserver2
+}  // namespace arrow

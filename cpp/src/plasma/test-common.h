@@ -15,28 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-extern crate arrow;
+#ifndef PLASMA_TEST_COMMON_H
+#define PLASMA_TEST_COMMON_H
 
-use arrow::array::*;
-use arrow::builder::*;
+#include "arrow/test-util.h"
+#include "gtest/gtest.h"
 
-fn main() {
-    let mut builder: Builder<i32> = Builder::new();
-    for i in 0..10 {
-        builder.push(i);
-    }
-    let buffer = builder.finish();
+#include "plasma/common.h"
 
-    println!("buffer length: {}", buffer.len());
-    println!("buffer contents: {:?}", buffer.iter().collect::<Vec<i32>>());
+namespace plasma {
 
-    // note that the builder can no longer be used once it has built a buffer, so either
-    // of the following calls will fail
-
-    //    builder.push(123);
-    //    builder.build();
-
-    // create a memory-aligned Arrow from the builder (zero-copy)
-    let array = PrimitiveArray::from(buffer);
-    println!("array contents: {:?}", array.iter().collect::<Vec<i32>>());
+ObjectID random_object_id() {
+  static uint32_t random_seed = 0;
+  ObjectID result;
+  arrow::random_bytes(kUniqueIDSize, random_seed++, result.mutable_data());
+  return result;
 }
+
+}  // namespace plasma
+
+#endif  // PLASMA_TEST_COMMON_H
