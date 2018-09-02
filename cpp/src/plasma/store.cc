@@ -43,7 +43,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-#include <ctime>
+#include <chrono>
 #include <deque>
 #include <memory>
 #include <string>
@@ -517,7 +517,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 
 void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
-    ARROW_LOG(DEBUG) << "deleting object " << object_id.hex();
+    ARROW_LOG(INFO) << "deleting object " << object_id.hex() << " at time " << std::chrono::steady_clock::now().time_since_epoch();
     auto entry = GetObjectTableEntry(&store_info_, object_id);
     // TODO(rkn): This should probably not fail, but should instead throw an
     // error. Maybe we should also support deleting objects that have been
@@ -796,7 +796,20 @@ Status PlasmaStore::ProcessMessage(Client* client) {
     case fb::MessageType::PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
+      std::chrono::milliseconds start =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+      );
+      ARROW_LOG(INFO) << "Sealing object " << object_id.hex() << " at " << start.count();
       SealObject(object_id, &digest[0]);
+
+      // Evict a small number of objects if we reach 90% utilization.
+      if (eviction_policy_.Utilization() >= 0.9) {
+        std::vector<ObjectID> objects_to_evict;
+        bool success =
+            eviction_policy_.RequireSpace(0, &objects_to_evict);
+        DeleteObjects(objects_to_evict);
+      }
     } break;
     case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.
