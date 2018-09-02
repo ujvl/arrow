@@ -517,7 +517,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 
 void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
-    ARROW_LOG(INFO) << "deleting object " << object_id.hex() << " at time " << std::chrono::steady_clock::now().time_since_epoch();
+    ARROW_LOG(INFO) << "deleting object " << object_id.hex() << " at time " << std::chrono::steady_clock::now().time_since_epoch().count();
     auto entry = GetObjectTableEntry(&store_info_, object_id);
     // TODO(rkn): This should probably not fail, but should instead throw an
     // error. Maybe we should also support deleting objects that have been
