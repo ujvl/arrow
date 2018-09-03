@@ -127,7 +127,6 @@ class EvictionPolicy {
 
   float Utilization();
 
- private:
   /// The amount of memory (in bytes) currently being used.
   int64_t memory_used_;
   /// Pointer to the plasma store info.

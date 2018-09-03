@@ -111,6 +111,7 @@ Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
                          bool hugepages_enabled)
     : loop_(loop), eviction_policy_(&store_info_) {
+  ARROW_LOG(INFO) << "init sys memory with " << system_memory;
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
@@ -180,8 +181,10 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
       if (pointer == nullptr) {
         // Tell the eviction policy how much space we need to create this object.
         std::vector<ObjectID> objects_to_evict;
+        ARROW_LOG(INFO) << "utilization before: " << eviction_policy_.memory_used_ << "B >> "  << store_info_.memory_capacity << "B";
         bool success =
             eviction_policy_.RequireSpace(data_size + metadata_size, &objects_to_evict);
+        ARROW_LOG(INFO) << "utilization after: " << eviction_policy_.memory_used_ << "B << "  << store_info_.memory_capacity << "B";
         DeleteObjects(objects_to_evict);
         // Return an error to the client if not enough space could be freed to
         // create the object.
@@ -514,7 +517,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
 
 void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
-    ARROW_LOG(INFO) << "[PlasmaStore::DeleteObjects] deleting " << object_id.hex() << " at time " << std::chrono::steady_clock::now().time_since_epoch();
+    ARROW_LOG(INFO) << "[PlasmaStore::DeleteObjects] deleting " << object_id.hex() << " at time " << std::chrono::steady_clock::now().time_since_epoch().count();
     auto entry = GetObjectTableEntry(&store_info_, object_id);
     // TODO(rkn): This should probably not fail, but should instead throw an
     // error. Maybe we should also support deleting objects that have been
@@ -798,9 +801,11 @@ Status PlasmaStore::ProcessMessage(Client* client) {
 
       // Evict a small number of objects if we reach 90% utilization.
       if (eviction_policy_.Utilization() >= 0.9) {
+        ARROW_LOG(INFO) << "utilization before: " << eviction_policy_.memory_used_ << "B >> "  << store_info_.memory_capacity << "B";
         std::vector<ObjectID> objects_to_evict;
         bool success =
             eviction_policy_.RequireSpace(0, &objects_to_evict);
+        ARROW_LOG(INFO) << "utilization after: " << eviction_policy_.memory_used_ << "B << "  << store_info_.memory_capacity << "B";
         DeleteObjects(objects_to_evict);
       }
     } break;
